@@ -10,6 +10,8 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
+	"log"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -53,6 +55,34 @@ func main() {
 	fmt.Println("Output:", ans)
 }
 
+type NumColl struct {
+	_serie []int
+	_id    int
+}
+
+func (nc *NumColl) FindInto(other NumColl) NumColl {
+	res := NumColl{_id: nc._id}
+	for _, vo := range other._serie {
+		idx := slices.IndexFunc(nc._serie, func(c int) bool { return c == vo })
+		if idx >= 0 {
+			res._serie = append(res._serie, nc._serie[idx])
+		}
+	}
+	return res
+}
+
+func (nc *NumColl) Points() int {
+	points := 0
+	for ix, _ := range nc._serie {
+		if ix == 0 {
+			points = 1
+		} else {
+			points = points * 2
+		}
+	}
+	return points
+}
+
 func spaceStrToNumArray(s string) []int {
 	res := []int{}
 	sa := strings.Split(s, " ")
@@ -71,6 +101,7 @@ func spaceStrToNumArray(s string) []int {
 
 func part1(input string) int {
 	row := 1
+	sum_points := 0
 	for _, line := range strings.Split(strings.TrimSuffix(input, "\n"), "\n") {
 		i := strings.IndexByte(line, ':')
 		ss := line[i+2:]
@@ -78,12 +109,24 @@ func part1(input string) int {
 		win_num := spaceStrToNumArray(wt[0])
 		my_num := spaceStrToNumArray(wt[1])
 		fmt.Println("scratch: ", row, win_num, my_num)
+		ww := NumColl{
+			_serie: win_num,
+			_id:    row,
+		}
+		mm := NumColl{
+			_serie: my_num,
+			_id:    row,
+		}
+		winner := mm.FindInto(ww)
+		points := winner.Points()
+		fmt.Println("winner", winner, points)
 		// scratch := strings.Split(line[i+2:], " | ")
 		// fmt.Println(scratch, len(scratch))
+		sum_points += points
 		row++
 	}
-
-	return 0
+	log.Println("Score is ", sum_points)
+	return sum_points
 }
 
 func part2(input string) int {
