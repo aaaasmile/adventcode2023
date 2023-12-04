@@ -4,12 +4,12 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
 //go:embed input.txt
 var input string
+
 //go:embed test.txt
 var testInput string
 
@@ -32,7 +32,7 @@ func main() {
 	flag.Parse()
 	fmt.Println("Running part", part, ", test inputs = ", test)
 
-  	if test {
+	if test {
 		input = testInput
 	}
 
@@ -47,9 +47,9 @@ func main() {
 }
 
 func part1(input string) int {
-	parsed := parseInput(input)
-	fmt.Println(parsed)
-
+	for _, line := range strings.Split(strings.TrimSuffix(input, "\n"), "\n") {
+		fmt.Println(line)
+	}
 	return 0
 }
 
