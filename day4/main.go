@@ -121,7 +121,7 @@ func (sc *Scratches) Total() int {
 	return count
 }
 
-// someting "34 53  9 36 52 30 70 60 65 96" to [34, 53, 9, 36, 52, 30, 70, 60, 65, 96]
+// something "34 53  9 36 52 30 70 60 65 96" to [34, 53, 9, 36, 52, 30, 70, 60, 65, 96]
 func spaceStrToNumArray(s string) []int {
 	res := []int{}
 	sa := strings.Split(s, " ")
@@ -186,7 +186,7 @@ func part2(input string) int {
 		}
 		winner_item := mm.FindInto(ww)
 		win_arr = append(win_arr, winner_item)
-		fmt.Println("winner size", winner_item, len(winner_item._serie))
+		fmt.Println("winner size", winner_item, len(winner_item._serie), row_ix)
 		row_ix++
 	}
 	scr := Scratches{
