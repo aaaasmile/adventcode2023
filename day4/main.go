@@ -36,7 +36,7 @@ func init() {
 func main() {
 	var part int
 	var test bool
-	flag.IntVar(&part, "part", 1, "part 1 or 2")
+	flag.IntVar(&part, "part", 2, "part 1 or 2")
 	flag.BoolVar(&test, "test", false, "run with test.txt inputs?")
 	flag.Parse()
 	fmt.Println("Running part", part, ", test inputs = ", test)
@@ -81,6 +81,36 @@ func (nc *NumColl) Points() int {
 		}
 	}
 	return points
+}
+
+type Scratches struct {
+	_freq     []int
+	_rebounds []int
+}
+
+func (sc *Scratches) IncCount(nc NumColl, ix int) {
+	sc._freq[ix] += 1
+	if len(nc._serie) == 0 {
+		return
+	}
+	subnc := NumColl{
+		_serie: nc._serie[1:],
+		_id:    nc._id,
+	}
+	if ix == len(sc._freq) {
+		return
+	}
+	next_ix := ix + 1
+	sc._rebounds = append(sc._rebounds, next_ix)
+	sc.IncCount(subnc, next_ix)
+}
+
+func (sc *Scratches) Total() int {
+	count := 0
+	for _, vv := range sc._freq {
+		count += vv
+	}
+	return count
 }
 
 func spaceStrToNumArray(s string) []int {
@@ -130,7 +160,50 @@ func part1(input string) int {
 }
 
 func part2(input string) int {
-	return 0
+	row_ix := 0
+	win_arr := []NumColl{}
+	for _, line := range strings.Split(strings.TrimSuffix(input, "\n"), "\n") {
+		i := strings.IndexByte(line, ':')
+		ss := line[i+2:]
+		wt := strings.Split(ss, " | ")
+		win_num := spaceStrToNumArray(wt[0])
+		my_num := spaceStrToNumArray(wt[1])
+		//fmt.Println("scratch: ", row, win_num, my_num)
+		ww := NumColl{
+			_serie: win_num,
+			_id:    row_ix,
+		}
+		mm := NumColl{
+			_serie: my_num,
+			_id:    row_ix,
+		}
+		winner_item := mm.FindInto(ww)
+		win_arr = append(win_arr, winner_item)
+		fmt.Println("winner size", winner_item, len(winner_item._serie))
+		row_ix++
+	}
+	scr := Scratches{
+		_freq: make([]int, row_ix),
+	}
+	for ix := range win_arr {
+		//scr._rebounds = []int{}
+		//scr.IncCount(vv, ix)
+		scr.newFunction(ix, win_arr)
+	}
+	tot := scr.Total()
+	log.Println("Total scratch: ", tot)
+	return tot
+}
+
+func (scr *Scratches) newFunction(ix int, win_arr []NumColl) {
+	scr._rebounds = []int{}
+	scr.IncCount(win_arr[ix], ix)
+	rebounds := scr._rebounds
+	for _, vvn := range rebounds {
+		scr._rebounds = []int{}
+		scr.IncCount(win_arr[vvn], vvn)
+		//scr.newFunction(vvn, win_arr)
+	}
 }
 
 func parseInput(input string) (parsedInput []int) {
