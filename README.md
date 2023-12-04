@@ -19,3 +19,6 @@
 #### Template a day directory
 
 Run `./create-day.sh <N>` where `N` is the day number
+
+## Credits
+Copied and modified from https://github.com/viliusan/aoc2023-go and https://github.com/Stogas/aoc2023-go

@@ -10,7 +10,6 @@ dayDir="day${1}"
 if [[ ! -d "${dayDir}" ]]; then
 	mkdir "${dayDir}"
 	cp skeleton/main.go_templ "${dayDir}/main.go"
-	#sed -i '' '1,2d' "${dayDir}/main.go"
 	touch "${dayDir}/input.txt"
 	touch "${dayDir}/test.txt"
 else
