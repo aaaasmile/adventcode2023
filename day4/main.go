@@ -73,7 +73,7 @@ func (nc *NumColl) FindInto(other NumColl) NumColl {
 
 func (nc *NumColl) Points() int {
 	points := 0
-	for ix, _ := range nc._serie {
+	for ix := range nc._serie {
 		if ix == 0 {
 			points = 1
 		} else {
@@ -84,35 +84,44 @@ func (nc *NumColl) Points() int {
 }
 
 type Scratches struct {
-	_freq     []int
-	_rebounds []int
+	_freq_orig []int
+	_freq_copy []int
 }
 
-func (sc *Scratches) IncCount(nc NumColl, ix int) {
-	sc._freq[ix] += 1
+func (sc *Scratches) IncCount(ixCurr int, nc NumColl) {
+	sc._freq_orig[ixCurr] += 1
+	sc.setCopies(ixCurr+1, nc)
+	// process previous copies
+	for ip := 0; ip < sc._freq_copy[ixCurr]; ip++ {
+		sc.setCopies(ixCurr+1, nc)
+	}
+}
+
+func (sc *Scratches) setCopies(ixNext int, nc NumColl) {
 	if len(nc._serie) == 0 {
 		return
 	}
-	subnc := NumColl{
-		_serie: nc._serie[1:],
-		_id:    nc._id,
+	max_len := ixNext + len(nc._serie)
+	if max_len > len(sc._freq_orig) {
+		max_len = len(sc._freq_orig)
 	}
-	if ix == len(sc._freq) {
-		return
+	for ic := ixNext; ic < max_len; ic++ {
+		sc._freq_copy[ic] += 1
 	}
-	next_ix := ix + 1
-	sc._rebounds = append(sc._rebounds, next_ix)
-	sc.IncCount(subnc, next_ix)
 }
 
 func (sc *Scratches) Total() int {
+	fmt.Println("orig: ", sc._freq_orig)
+	fmt.Println("copy: ", sc._freq_copy)
 	count := 0
-	for _, vv := range sc._freq {
+	for ix, vv := range sc._freq_orig {
 		count += vv
+		count += sc._freq_copy[ix]
 	}
 	return count
 }
 
+// someting "34 53  9 36 52 30 70 60 65 96" to [34, 53, 9, 36, 52, 30, 70, 60, 65, 96]
 func spaceStrToNumArray(s string) []int {
 	res := []int{}
 	sa := strings.Split(s, " ")
@@ -150,8 +159,6 @@ func part1(input string) int {
 		winner := mm.FindInto(ww)
 		points := winner.Points()
 		fmt.Println("winner", winner, points)
-		// scratch := strings.Split(line[i+2:], " | ")
-		// fmt.Println(scratch, len(scratch))
 		sum_points += points
 		row++
 	}
@@ -183,37 +190,13 @@ func part2(input string) int {
 		row_ix++
 	}
 	scr := Scratches{
-		_freq: make([]int, row_ix),
+		_freq_orig: make([]int, row_ix),
+		_freq_copy: make([]int, row_ix),
 	}
-	for ix := range win_arr {
-		//scr._rebounds = []int{}
-		//scr.IncCount(vv, ix)
-		scr.newFunction(ix, win_arr)
+	for ix, vv := range win_arr {
+		scr.IncCount(ix, vv)
 	}
 	tot := scr.Total()
 	log.Println("Total scratch: ", tot)
 	return tot
-}
-
-func (scr *Scratches) newFunction(ix int, win_arr []NumColl) {
-	scr._rebounds = []int{}
-	scr.IncCount(win_arr[ix], ix)
-	rebounds := scr._rebounds
-	for _, vvn := range rebounds {
-		scr._rebounds = []int{}
-		scr.IncCount(win_arr[vvn], vvn)
-		//scr.newFunction(vvn, win_arr)
-	}
-}
-
-func parseInput(input string) (parsedInput []int) {
-	for _, line := range strings.Split(input, "\n") {
-		parsedInput = append(parsedInput, stringToInt(line))
-	}
-	return parsedInput
-}
-
-func stringToInt(input string) int {
-	output, _ := strconv.Atoi(input)
-	return output
 }
