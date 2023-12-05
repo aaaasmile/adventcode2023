@@ -219,9 +219,7 @@ func (al *Almanc) FindSeedRangeMinLocation() int {
 
 	al.PrintfindSeedLocation(mm._seed)
 	fmt.Printf("=>> result min loc: %d on seed %d\n", mm._loc, mm._seed)
-	// Result:
-	//[seed-to-soil]1799904698  to 2591475607[soil-to-fertilizer]2591475607  to 1845492661[fertilizer-to-water]1845492661  to 370848826[water-to-light]370848826  to 2040536191[light-to-temperature]2040536191  to 2130995124[temperature-to-humidity]2130995124  to 3778482785[humidity-to-location]3778482785  to 78775051=>> result min loc: 78775051 on seed 1799904698
-	//2023/12/05 17:05:52 min location is  78775051
+	
 	return mm._loc
 }
 
