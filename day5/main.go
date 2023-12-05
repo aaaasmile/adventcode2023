@@ -81,37 +81,23 @@ func (sc *Section) addLine(ll []int) {
 	})
 }
 
-func (sc *Section) addLineRev(ll []int) {
-	if len(ll) != 3 {
-		panic("format error")
-	}
-	sl := SectionLine{
-		_dest_start:   ll[0],
-		_source_start: ll[1],
-		_range_len:    ll[2],
-	}
-
-	sc._lines = append(sc._lines, sl)
-	slices.SortFunc(sc._lines, func(a, b SectionLine) int {
-		return cmp.Compare(b._source_start, a._source_start)
-	})
-}
-
 func (sc *Section) CalcDestinationWithRange(seedR SeedWithRange) int {
-	for _, sl := range sc._lines {
-		if seedR._startIx == sl._source_start {
-			return sl._dest_start
+	for j := seedR._startIx; j < seedR._endIx; j++ {
+		for _, sl := range sc._lines {
+			if j == sl._source_start {
+				return sl._dest_start
+			}
 		}
-	}
-	for _, sl := range sc._lines {
-		offset := seedR._startIx - sl._source_start
-		if seedR._startIx < sl._source_start {
-			return seedR._startIx
+		for _, sl := range sc._lines {
+			offset := j - sl._source_start
+			if j < sl._source_start {
+				return j
+			}
+			if j > sl._source_start+sl._range_len {
+				continue
+			}
+			return sl._dest_start + offset
 		}
-		if seedR._startIx > sl._source_start+sl._range_len {
-			continue
-		}
-		return sl._dest_start + offset
 	}
 	return seedR._startIx
 }
@@ -194,20 +180,47 @@ func (al *Almanc) findSeedLocation(ss int) int {
 	return dest
 }
 
-func (al *Almanc) findSeedRangeLocation(seedR SeedWithRange) int {
+type Pair struct {
+	_loc  int
+	_seed int
+}
+
+func (al *Almanc) findSeedRangeLocation(seedR SeedWithRange) Pair {
 	seq := []string{"seed-to-soil", "soil-to-fertilizer", "fertilizer-to-water", "water-to-light", "light-to-temperature", "temperature-to-humidity", "humidity-to-location"}
-	curr_src := seedR
 	dest := 0
-	for _, seqkey := range seq {
-		sct, ok := al._detail[seqkey]
-		if !ok {
-			panic("map not found")
+	locations := []Pair{}
+	for j := seedR._startIx; j < seedR._endIx; j++ {
+		curr_src := j
+		for _, seqkey := range seq {
+			sct, ok := al._detail[seqkey]
+			if !ok {
+				panic("map not found")
+			}
+			dest = sct.CalcDestination(curr_src)
+			//fmt.Printf("[%s]%d  to %d", seqkey, curr_src, dest)
+			curr_src = dest
 		}
-		dest = sct.CalcDestinationWithRange(curr_src)
-		fmt.Printf("[%s]%d  to %d", seqkey, curr_src, dest)
-		curr_src = seedR
+		locations = append(locations, Pair{_loc: dest, _seed: j})
+
 	}
-	return dest
+	mm := slices.MinFunc(locations, func(a, b Pair) int { return cmp.Compare(a._loc, b._loc) })
+	fmt.Println("Local range min is ", mm)
+	return mm
+}
+
+func (al *Almanc) FindSeedRangeMinLocation() int {
+	locations := []Pair{}
+	for _, vs := range al._seedsWithRange {
+		loc := al.findSeedRangeLocation(vs)
+		locations = append(locations, loc)
+	}
+	fmt.Println("Locations", locations)
+	mm := slices.MinFunc(locations, func(a, b Pair) int { return cmp.Compare(a._loc, b._loc) })
+
+	al.PrintfindSeedLocation(mm._seed)
+	fmt.Printf("=>> result min loc: %d on seed %d\n", mm._loc, mm._seed)
+
+	return mm._loc
 }
 
 func (al *Almanc) CheckSeedLocation() int {
@@ -226,17 +239,6 @@ func (al *Almanc) IsSeedInRange(seed int) bool {
 		return c._startIx <= seed && seed <= c._endIx
 	})
 	return ix >= 0
-}
-
-func (al *Almanc) FindSeedRangeMinLocation() int {
-	locations := []int{}
-	for _, vs := range al._seedsWithRange {
-		loc := al.findSeedRangeLocation(vs)
-		locations = append(locations, loc)
-	}
-	fmt.Println("Locations", locations)
-	mm := slices.Min(locations)
-	return mm
 }
 
 func (al *Almanc) FindSimpleMinLocation() int {
@@ -304,12 +306,7 @@ func part12(input string, rangeSearch bool) int {
 			state = LookData
 		} else if state == LookData {
 			dd := spaceStrToNumArray(line)
-			if rangeSearch {
-				section.addLineRev(dd)
-			} else {
-				section.addLine(dd)
-			}
-
+			section.addLine(dd)
 		}
 	}
 	if key != "" {
