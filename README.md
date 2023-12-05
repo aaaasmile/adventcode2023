@@ -23,4 +23,4 @@ Make sure that you use LF instead of CRLF in test.txt and input.txt
 Run `./create-day.sh <N>` where `N` is the day number (under windows use WSL or create a Powershell Script)
 
 ## Credits
-Copied (first 3 dfays) and modified from https://github.com/viliusan/aoc2023-go and https://github.com/Stogas/aoc2023-go
+Copied (first 3 days are not mine) and modified from https://github.com/viliusan/aoc2023-go and https://github.com/Stogas/aoc2023-go
