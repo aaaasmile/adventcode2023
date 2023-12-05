@@ -97,23 +97,23 @@ func (sc *Section) addLineRev(ll []int) {
 	})
 }
 
-func (sc *Section) CalcSource(dst int) int {
+func (sc *Section) CalcDestinationWithRange(seedR SeedWithRange) int {
 	for _, sl := range sc._lines {
-		if dst == sl._dest_start {
-			return sl._source_start
+		if seedR._startIx == sl._source_start {
+			return sl._dest_start
 		}
 	}
 	for _, sl := range sc._lines {
-		offset := dst - sl._dest_start
-		if dst < sl._dest_start {
-			return dst
+		offset := seedR._startIx - sl._source_start
+		if seedR._startIx < sl._source_start {
+			return seedR._startIx
 		}
-		if dst > sl._dest_start+sl._range_len {
+		if seedR._startIx > sl._source_start+sl._range_len {
 			continue
 		}
-		return sl._source_start + offset
+		return sl._dest_start + offset
 	}
-	return dst
+	return seedR._startIx
 }
 
 func (sc *Section) CalcDestination(ss int) int {
@@ -194,32 +194,20 @@ func (al *Almanc) findSeedLocation(ss int) int {
 	return dest
 }
 
-func (al *Almanc) findSeedRangeLocation(ss_s, ss_e, b_loc_s, b_loc_e int) int {
-	loc_s := b_loc_s
-	loc_e := b_loc_e
-	if loc_s == -1 {
-		loc_s = al.findSeedLocation(ss_s)
-	}
-	if loc_e == -1 {
-		loc_e = al.findSeedLocation(ss_e)
-	}
-
-	if loc_s == loc_e {
-		return loc_e
-	}
-	if ss_e-ss_s == 1 {
-		if loc_e < loc_s {
-			return loc_e
-		} else {
-			return loc_s
+func (al *Almanc) findSeedRangeLocation(seedR SeedWithRange) int {
+	seq := []string{"seed-to-soil", "soil-to-fertilizer", "fertilizer-to-water", "water-to-light", "light-to-temperature", "temperature-to-humidity", "humidity-to-location"}
+	curr_src := seedR
+	dest := 0
+	for _, seqkey := range seq {
+		sct, ok := al._detail[seqkey]
+		if !ok {
+			panic("map not found")
 		}
+		dest = sct.CalcDestinationWithRange(curr_src)
+		fmt.Printf("[%s]%d  to %d", seqkey, curr_src, dest)
+		curr_src = seedR
 	}
-	half := ss_s + (int)((ss_e-ss_s)/2)
-	if loc_e < loc_s {
-		return al.findSeedRangeLocation(half, ss_e, -1, loc_e)
-	} else {
-		return al.findSeedRangeLocation(ss_s, half, loc_s, -1)
-	}
+	return dest
 }
 
 func (al *Almanc) CheckSeedLocation() int {
@@ -233,23 +221,6 @@ func (al *Almanc) CheckSeedLocation() int {
 	return mm
 }
 
-func (al *Almanc) findReverseLocationToSeed(dst int) int {
-	seq := []string{"humidity-to-location", "temperature-to-humidity", "light-to-temperature", "water-to-light", "fertilizer-to-water", "soil-to-fertilizer", "seed-to-soil"}
-	curr_dst := dst
-	src := 0
-	for _, seqkey := range seq {
-		sct, ok := al._detail[seqkey]
-		if !ok {
-			panic("map not found")
-		}
-		src = sct.CalcSource(curr_dst)
-		fmt.Printf("[%s]%d  to %d", seqkey, curr_dst, src)
-		curr_dst = src
-	}
-
-	return src
-}
-
 func (al *Almanc) IsSeedInRange(seed int) bool {
 	ix := slices.IndexFunc(al._seedsWithRange, func(c SeedWithRange) bool {
 		return c._startIx <= seed && seed <= c._endIx
@@ -257,60 +228,11 @@ func (al *Almanc) IsSeedInRange(seed int) bool {
 	return ix >= 0
 }
 
-func (al *Almanc) FindMinLocationWithReverse() int {
-	locations := []int{}
-	loc := 0
-	//for _, ss := range al._seeds {
-	sct := al._detail["humidity-to-location"]
-	for ix := range sct._lines {
-		sctline := sct._lines[ix]
-		loc = sctline._dest_start
-		old_size := len(locations)
-		locations = al.reverselocation(loc, locations)
-		if len(locations) > old_size {
-			break
-		}
-		loc = sctline._dest_start + sctline._range_len
-		locations = al.reverselocation(loc, locations)
-	}
-	for i := 0; i < 2; i++ {
-		old_size := len(locations)
-		locations = al.reverselocation(i, locations)
-		if len(locations) > old_size {
-			fmt.Println("*** Wov found it", i)
-			break
-		}
-	}
-
-	fmt.Println("Locations", locations)
-	mm := slices.Min(locations)
-	return mm
-}
-
-func (al *Almanc) reverselocation(loc int, locations []int) []int {
-	seed := al.findReverseLocationToSeed(loc)
-
-	if al.IsSeedInRange(seed) {
-		fmt.Println("Seed is a min", seed)
-		locations = append(locations, loc)
-	}
-	return locations
-}
-
 func (al *Almanc) FindSeedRangeMinLocation() int {
 	locations := []int{}
-	rr := -1
-	ss_s := -1
-	for _, vs := range al._seeds {
-		if ss_s == -1 {
-			ss_s = vs
-		} else {
-			rr = vs
-			loc := al.findSeedRangeLocation(ss_s, ss_s+rr, -1, -1)
-			locations = append(locations, loc)
-			rr = -1
-			ss_s = -1
-		}
+	for _, vs := range al._seedsWithRange {
+		loc := al.findSeedRangeLocation(vs)
+		locations = append(locations, loc)
 	}
 	fmt.Println("Locations", locations)
 	mm := slices.Min(locations)
@@ -357,22 +279,19 @@ func part12(input string, rangeSearch bool) int {
 		}
 		if state == LookSeed {
 			tp := strings.Split(line, ":")
-			if rangeSearch {
-				dd := spaceStrToNumArray(tp[1])
-				ssl := -1
-				ssr := -1
-				for _, ddv := range dd {
-					if ssl == -1 {
-						ssl = ddv
-					} else {
-						ssr = ddv
-						alm._seedsWithRange = append(alm._seedsWithRange, SeedWithRange{_startIx: ssl, _length: ssr, _endIx: ssl + ssr})
-						ssl = -1
-						ssr = -1
-					}
+			alm._seeds = spaceStrToNumArray(tp[1])
+			dd := spaceStrToNumArray(tp[1])
+			ssl := -1
+			ssr := -1
+			for _, ddv := range dd {
+				if ssl == -1 {
+					ssl = ddv
+				} else {
+					ssr = ddv
+					alm._seedsWithRange = append(alm._seedsWithRange, SeedWithRange{_startIx: ssl, _length: ssr, _endIx: ssl + ssr})
+					ssl = -1
+					ssr = -1
 				}
-			} else {
-				alm._seeds = spaceStrToNumArray(tp[1])
 			}
 			state = LookKey
 		} else if state == LookKey {
@@ -404,9 +323,11 @@ func part12(input string, rangeSearch bool) int {
 	mm := 0
 	if rangeSearch {
 		// part 2
-		//mm = alm.PrintfindSeedLocation(82)
+		//mm = alm.PrintfindSeedLocation(155057073)
+		//mm = alm.PrintfindSeedLocation(4037445045)
+		mm = alm.FindSeedRangeMinLocation()
 		//fmt.Println("Min location for seed 82: ", mm)
-		mm = alm.FindMinLocationWithReverse()
+		//mm = alm.FindMinLocationWithReverse()
 		//alm.CheckSeedLocation()
 	} else {
 		// Part 1
