@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -278,17 +279,45 @@ const (
 	3658756438 743483123 240957277`
 )
 
+type SectionLine struct {
+	_dest_start   int
+	_source_start int
+	_range_len    int
+}
+
 type Section struct {
-	_lines [][]int
+	_lines []SectionLine
+	_corr  map[int]int
 }
 
 func (sc *Section) addLine(ll []int) {
-	sc._lines = append(sc._lines, ll)
+	if len(ll) != 3 {
+		panic("format error")
+	}
+	sl := SectionLine{
+		_dest_start:   ll[0],
+		_source_start: ll[1],
+		_range_len:    ll[2],
+	}
+	for i := 0; i < sl._range_len; i++ {
+		ix_s := sl._source_start + i
+		ix_d := sl._dest_start + i
+		sc._corr[ix_s] = ix_d
+	}
+	sc._lines = append(sc._lines, sl)
+}
+
+func (sc *Section) DestToSource(ss int) int {
+	if vv, ok := sc._corr[ss]; ok {
+		return vv
+	}
+	return ss
 }
 
 func NewSection() *Section {
 	sc := Section{
-		_lines: [][]int{},
+		_lines: []SectionLine{},
+		_corr:  map[int]int{},
 	}
 	return &sc
 }
@@ -296,6 +325,14 @@ func NewSection() *Section {
 type Almanc struct {
 	_seeds  []int
 	_detail map[string]*Section
+}
+
+func (al *Almanc) PrintSeedToSoil() {
+	sct := al._detail["seed-to-soil"]
+	for _, v := range al._seeds {
+		d := sct.DestToSource(v)
+		log.Printf("Seed number %d corresponds to soil number %d\n", v, d)
+	}
 }
 
 type ParState int
@@ -348,6 +385,7 @@ func part1(input string) int {
 	for k, v := range alm._detail {
 		fmt.Println("section: ", k, v)
 	}
+	alm.PrintSeedToSoil()
 
 	return 0
 }
