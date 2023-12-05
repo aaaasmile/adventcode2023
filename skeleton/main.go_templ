@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"strings"
+	"time"
 )
 
 //go:embed input.txt
@@ -31,7 +32,7 @@ func main() {
 	flag.BoolVar(&test, "test", false, "run with test.txt inputs?")
 	flag.Parse()
 	fmt.Println("Running part", part, ", test inputs = ", test)
-
+	start := time.Now()
 	if test {
 		input = testInput
 	}
@@ -44,6 +45,9 @@ func main() {
 		ans = part2(input)
 	}
 	fmt.Println("Output:", ans)
+	t := time.Now()
+	elapsed := t.Sub(start)
+	log.Printf("total call duration: %v\n", elapsed)
 }
 
 func part1(input string) int {

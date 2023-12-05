@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	_ "embed"
 	"flag"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //go:embed input.txt
@@ -34,7 +36,7 @@ func main() {
 	flag.BoolVar(&test, "test", false, "run with test.txt inputs?")
 	flag.Parse()
 	fmt.Println("Running part", part, ", test inputs = ", test)
-
+	start := time.Now()
 	if test {
 		input = testInput
 	}
@@ -47,6 +49,9 @@ func main() {
 		ans = part2(input)
 	}
 	fmt.Println("Output:", ans)
+	t := time.Now()
+	elapsed := t.Sub(start)
+	log.Printf("total call duration: %v\n", elapsed)
 }
 
 type SectionLine struct {
@@ -57,7 +62,7 @@ type SectionLine struct {
 
 type Section struct {
 	_lines []SectionLine
-	_corr  map[int]int
+	_corr  map[int]SectionLine
 }
 
 func (sc *Section) addLine(ll []int) {
@@ -69,17 +74,23 @@ func (sc *Section) addLine(ll []int) {
 		_source_start: ll[1],
 		_range_len:    ll[2],
 	}
-	for i := 0; i < sl._range_len; i++ {
-		ix_s := sl._source_start + i
-		ix_d := sl._dest_start + i
-		sc._corr[ix_s] = ix_d
-	}
+
 	sc._lines = append(sc._lines, sl)
+	slices.SortFunc(sc._lines, func(a, b SectionLine) int {
+		return cmp.Compare(a._source_start, b._source_start)
+	})
 }
 
 func (sc *Section) DestToSource(ss int) int {
-	if vv, ok := sc._corr[ss]; ok {
-		return vv
+	for _, sl := range sc._lines {
+		offset := ss - sl._source_start
+		if ss < sl._source_start {
+			return ss
+		}
+		if ss > sl._source_start+sl._range_len {
+			continue
+		}
+		return sl._dest_start + offset
 	}
 	return ss
 }
@@ -87,7 +98,6 @@ func (sc *Section) DestToSource(ss int) int {
 func NewSection() *Section {
 	sc := Section{
 		_lines: []SectionLine{},
-		_corr:  map[int]int{},
 	}
 	return &sc
 }
@@ -187,7 +197,7 @@ func part1(input string) int {
 	mm := alm.FindMinLocation()
 	log.Println("min location is ", mm)
 
-	return 0
+	return mm
 }
 
 func part2(input string) int {
