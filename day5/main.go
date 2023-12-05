@@ -32,7 +32,7 @@ func init() {
 func main() {
 	var part int
 	var test bool
-	flag.IntVar(&part, "part", 1, "part 1 or 2")
+	flag.IntVar(&part, "part", 2, "part 1 or 2")
 	flag.BoolVar(&test, "test", false, "run with test.txt inputs?")
 	flag.Parse()
 	fmt.Println("Running part", part, ", test inputs = ", test)
@@ -44,9 +44,9 @@ func main() {
 	var ans int
 	switch part {
 	case 1:
-		ans = part1(input)
+		ans = part12(input, false)
 	case 2:
-		ans = part2(input)
+		ans = part12(input, true)
 	}
 	fmt.Println("Output:", ans)
 	t := time.Now()
@@ -83,6 +83,11 @@ func (sc *Section) addLine(ll []int) {
 
 func (sc *Section) DestToSource(ss int) int {
 	for _, sl := range sc._lines {
+		if ss == sl._source_start {
+			return sl._dest_start
+		}
+	}
+	for _, sl := range sc._lines {
 		offset := ss - sl._source_start
 		if ss < sl._source_start {
 			return ss
@@ -115,6 +120,22 @@ func (al *Almanc) PrintSeedToSoil() {
 	}
 }
 
+func (al *Almanc) PrintfindSeedLocation(ss int) int {
+	seq := []string{"seed-to-soil", "soil-to-fertilizer", "fertilizer-to-water", "water-to-light", "light-to-temperature", "temperature-to-humidity", "humidity-to-location"}
+	curr_src := ss
+	dest := 0
+	for _, seqkey := range seq {
+		sct, ok := al._detail[seqkey]
+		if !ok {
+			panic("map not found")
+		}
+		dest = sct.DestToSource(curr_src)
+		fmt.Printf("[%s]%d  to %d", seqkey, curr_src, dest)
+		curr_src = dest
+	}
+	return dest
+}
+
 func (al *Almanc) findSeedLocation(ss int) int {
 	seq := []string{"seed-to-soil", "soil-to-fertilizer", "fertilizer-to-water", "water-to-light", "light-to-temperature", "temperature-to-humidity", "humidity-to-location"}
 	curr_src := ss
@@ -131,7 +152,84 @@ func (al *Almanc) findSeedLocation(ss int) int {
 	return dest
 }
 
-func (al *Almanc) FindMinLocation() int {
+func (al *Almanc) findSeedRangeLocation(ss_s, ss_e, b_loc_s, b_loc_e int) int {
+	loc_s := b_loc_s
+	loc_e := b_loc_e
+	if loc_s == -1 {
+		loc_s = al.findSeedLocation(ss_s)
+	}
+	if loc_e == -1 {
+		loc_e = al.findSeedLocation(ss_e)
+	}
+
+	if loc_s == loc_e {
+		return loc_e
+	}
+	if ss_e-ss_s == 1 {
+		if loc_e < loc_s {
+			return loc_e
+		} else {
+			return loc_s
+		}
+	}
+	half := ss_s + (int)((ss_e-ss_s)/2)
+	if loc_e < loc_s {
+		return al.findSeedRangeLocation(half, ss_e, -1, loc_e)
+	} else {
+		return al.findSeedRangeLocation(ss_s, half, loc_s, -1)
+	}
+}
+
+func (al *Almanc) CheckSeedLocation() int {
+	locations := []int{}
+	for i := 0; i < 100; i++ {
+		loc := al.findSeedLocation(i)
+		locations = append(locations, loc)
+	}
+	fmt.Println("Locations", locations)
+	mm := slices.Min(locations)
+	return mm
+}
+
+func (al *Almanc) FindSeedRangeMinLocation() int {
+	locations := []int{}
+	rr := -1
+	ss_s := -1
+	for _, vs := range al._seeds {
+		if ss_s == -1 {
+			ss_s = vs
+		} else {
+			rr = vs
+			loc := al.findSeedRangeLocation(ss_s, ss_s+rr, -1, -1)
+			locations = append(locations, loc)
+			rr = -1
+			ss_s = -1
+		}
+	}
+	fmt.Println("Locations", locations)
+	mm := slices.Min(locations)
+	return mm
+}
+
+// func (al *Almanc) findSeedRangeLocation(ss_s, ss_r int) int {
+// 	seq := []string{"seed-to-soil", "soil-to-fertilizer", "fertilizer-to-water", "water-to-light", "light-to-temperature", "temperature-to-humidity", "humidity-to-location"}
+// 	curr_src := ss_s
+// 	curr_rng := ss_r
+// 	dest := 0
+// 	for _, seqkey := range seq {
+// 		sct, ok := al._detail[seqkey]
+// 		if !ok {
+// 			panic("map not found")
+// 		}
+// 		// ?????????????????????
+// 		dest = sct.DestToSourceRange(curr_src, curr_rng)
+// 		//fmt.Printf("[%s]%d  to %d", seqkey, curr_src, dest)
+// 		curr_src = dest
+// 	}
+// 	return dest
+// }
+
+func (al *Almanc) FindSimpleMinLocation() int {
 	locations := []int{}
 	for _, ss := range al._seeds {
 		loc := al.findSeedLocation(ss)
@@ -151,7 +249,7 @@ const (
 	LookEofData
 )
 
-func part1(input string) int {
+func part12(input string, rangeSearch bool) int {
 	alm := Almanc{
 		_seeds:  []int{},
 		_detail: make(map[string]*Section),
@@ -192,16 +290,22 @@ func part1(input string) int {
 	for k, v := range alm._detail {
 		fmt.Println("section: ", k, v)
 	}
-	alm.PrintSeedToSoil()
-	alm.findSeedLocation(79)
-	mm := alm.FindMinLocation()
+
+	mm := 0
+	if rangeSearch {
+		//mm = alm.PrintfindSeedLocation(82)
+		//fmt.Println("Min location for seed 82: ", mm)
+		mm = alm.FindSeedRangeMinLocation()
+		//alm.CheckSeedLocation()
+	} else {
+		alm.PrintSeedToSoil()
+		alm.findSeedLocation(79)
+		mm = alm.FindSimpleMinLocation()
+	}
+
 	log.Println("min location is ", mm)
 
 	return mm
-}
-
-func part2(input string) int {
-	return 0
 }
 
 func spaceStrToNumArray(s string) []int {
