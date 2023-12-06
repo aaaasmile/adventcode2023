@@ -30,7 +30,7 @@ func init() {
 func main() {
 	var part int
 	var test bool
-	flag.IntVar(&part, "part", 1, "part 1 or 2")
+	flag.IntVar(&part, "part", 2, "part 1 or 2")
 	flag.BoolVar(&test, "test", false, "run with test.txt inputs?")
 	flag.Parse()
 	fmt.Println("Running part", part, ", test inputs = ", test)
@@ -58,6 +58,7 @@ type Record struct {
 	_minLoopTime int
 	_maxLoopTime int
 	_id          int
+	_printHist   bool
 }
 
 func (rc *Record) CalcDiffWayToBeatRecord() int {
@@ -80,8 +81,10 @@ func (rc *Record) CalcDiffWayToBeatRecord() int {
 	}
 	fmt.Printf("[Race %d]: different ways to win (duration %d, record %d, min_hold %d, max_hold %d): %d\n",
 		rc._id, rc._duration, rc._recordDist, rc._minLoopTime, rc._maxLoopTime, wins)
-	fmt.Println("hist win: ", win_hist, len(win_hist))
-	fmt.Println("hist dis: ", dist_hist, len(dist_hist))
+	if rc._printHist {
+		fmt.Println("hist win: ", win_hist, len(win_hist))
+		fmt.Println("hist dis: ", dist_hist, len(dist_hist))
+	}
 
 	return wins
 }
@@ -122,7 +125,34 @@ func part1(input string, isTest bool) int {
 }
 
 func part2(input string) int {
-	return 0
+	races := []Record{}
+	times := []int{}
+	dist := []int{}
+	for ix, line := range strings.Split(strings.TrimSuffix(input, "\n"), "\n") {
+		fmt.Println(line)
+		if ix == 0 {
+			tt := strings.Split(line, ":")
+			times = spaceStrToOneNumArray(tt[1])
+		} else if ix == 1 {
+			dd := strings.Split(line, ":")
+			dist = spaceStrToOneNumArray(dd[1])
+		}
+	}
+	for ix := range times {
+		races = append(races, Record{_duration: times[ix], _recordDist: dist[ix], _id: ix + 1, _maxLoopTime: times[ix]})
+	}
+	fmt.Println("records: ", races)
+	ways := []int{}
+	mult := 1
+
+	for _, rr := range races {
+		ww := rr.CalcDiffWayToBeatRecord()
+		ways = append(ways, ww)
+		mult *= ww
+	}
+	log.Println("Number of ways you can beat the record", mult)
+	//on input data: total call duration: 2.0409317s
+	return mult
 }
 
 func spaceStrToNumArray(s string) []int {
@@ -138,5 +168,17 @@ func spaceStrToNumArray(s string) []int {
 		}
 		res = append(res, num)
 	}
+	return res
+}
+
+func spaceStrToOneNumArray(s string) []int {
+	res := []int{}
+	sa := strings.Split(s, " ")
+	bignum := strings.Join(sa, "")
+	num, err := strconv.Atoi(bignum)
+	if err != nil {
+		panic(err)
+	}
+	res = append(res, num)
 	return res
 }
