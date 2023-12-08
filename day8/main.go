@@ -134,33 +134,8 @@ func (gm *GuideMap) CountSimultaneousKeys(start, dst string) int {
 
 	for ix, ss := range gm._start_sim_keys {
 		go func(cix int, start_s string) {
-			gmch := GuideMap{
-				_instr:     gm._instr,
-				_dstKey:    gm._dstKey,
-				_startKey:  start_s,
-				_guideBook: gm._guideBook,
-				_path:      []string{},
-			}
-			tix := 0
-			step := 0
-			curr_k := start_s
-			for {
-				turn := gmch._instr[tix]
-				cc := 0
-				endk := ""
-				cc, endk, tix = gmch.nextTurnSim(curr_k, turn, tix, step)
-				step_chan <- StepEnd{fin_step: cc, fin_key: endk, chan_ix: cix}
-				curr_k = endk
-				select {
-				case cont := <-conti_chan:
-					if cont.chan_ix == cix {
-						break
-					}
-				case <-term_chan:
-					fmt.Println("sub routine terminated", cix)
-					return
-				}
-			}
+			gm.searchStepToEndSuffix(start_s, step_chan, cix, conti_chan, term_chan)
+			fmt.Println("routine terminated ", cix)
 		}(ix, ss)
 	}
 	for {
@@ -181,6 +156,7 @@ func (gm *GuideMap) CountSimultaneousKeys(start, dst string) int {
 					equal = false
 					if vv != 0 {
 						res_sim_keys[ix] = 0
+						fmt.Println("wake up routine  ", ix)
 						conti_chan <- StepContinue{chan_ix: ix}
 					}
 				}
@@ -196,6 +172,45 @@ func (gm *GuideMap) CountSimultaneousKeys(start, dst string) int {
 	}
 }
 
+func (gm *GuideMap) searchStepToEndSuffix(start_s string, step_chan chan StepEnd, cix int, conti_chan chan StepContinue, term_chan chan int) bool {
+	gmch := GuideMap{
+		_instr:     gm._instr,
+		_dstKey:    gm._dstKey,
+		_startKey:  start_s,
+		_guideBook: gm._guideBook,
+		_path:      []string{},
+	}
+	tix := 0
+	tix_next := 0
+	step := 0
+	cc := 0
+	endk := ""
+	curr_k := start_s
+	for {
+		turn := gmch._instr[tix]
+		cc, endk, tix_next = gmch.nextTurnSim(curr_k, turn, tix, step)
+		curr_k = endk
+		step = cc
+		tix = tix_next
+		fmt.Printf("[sub routine %d] candidate (step %d, key %s)\n", cix, cc, endk)
+		fmt.Printf("[sub routine %d] path %v\n", cix, gmch._path)
+	loop_inter:
+		for {
+			step_chan <- StepEnd{fin_step: cc, fin_key: endk, chan_ix: cix}
+			select {
+			case cont := <-conti_chan:
+				if cont.chan_ix == cix {
+					fmt.Printf("[sub routine %d] path %s\n", cix, start_s)
+					break loop_inter
+				}
+			case <-term_chan:
+				fmt.Printf("[sub routine %d] terminated signal received\n", cix)
+				return true
+			}
+		}
+	}
+}
+
 func (gm *GuideMap) nextTurnSim(kk string, turn Turn, tix, count int) (int, string, int) {
 	if count > 100000 {
 		fmt.Println(gm._path[len(gm._path)-100:])
@@ -206,19 +221,24 @@ func (gm *GuideMap) nextTurnSim(kk string, turn Turn, tix, count int) (int, stri
 		count += 1
 		kt = vv.GetTurnKey(turn)
 		gm._path = append(gm._path, kt)
+		nextTix, nextTurn := gm.nextTixWithTurn(tix)
 		if strings.HasSuffix(kt, gm._dstKey) {
-			return count, kt, tix
+			return count, kt, nextTix
 		}
-		nextTix := tix + 1
-		if nextTix >= len(gm._instr) {
-			nextTix = 0
-		}
-		nextTurn := gm._instr[nextTix]
 		count, kt, tix = gm.nextTurnSim(kt, nextTurn, nextTix, count)
 	} else {
 		panic(fmt.Sprintf("key not found %s", kk))
 	}
 	return count, kt, tix
+}
+
+func (gm *GuideMap) nextTixWithTurn(tix int) (int, Turn) {
+	nextTix := tix + 1
+	if nextTix >= len(gm._instr) {
+		nextTix = 0
+	}
+	nextTurn := gm._instr[nextTix]
+	return nextTix, nextTurn
 }
 
 func (gm *GuideMap) CountSteps(start, dst string) int {
@@ -348,5 +368,5 @@ func part2(input string) int {
 	//fmt.Println(gm._guideBook)
 	//fmt.Println("path", gm._path)
 	fmt.Printf("Steps simultaneous from %s to %s are %d\n", start_key, dest_key, steps)
-	return 0
+	return steps
 }
