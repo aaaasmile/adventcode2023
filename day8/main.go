@@ -58,14 +58,38 @@ const (
 	Right
 )
 
-type LRItem struct {
-	_left  Turn
-	_right Turn
+func (t *Turn) String() string {
+	if *t == Left {
+		return "L"
+	} else if *t == Right {
+		return "R"
+	}
+	panic("not recognized")
 }
 
+type LRItem struct {
+	_leftKey  string
+	_rightKey string
+}
+
+type TurnArr []Turn
+
 type GuideMap struct {
-	_instr     []Turn
+	_instr     TurnArr
 	_guideBook map[string]LRItem
+}
+
+func (tt *TurnArr) String() string {
+	str := ""
+	for _, r := range *tt {
+		if str == "" {
+			str += r.String()
+		} else {
+			str = fmt.Sprintf("%s %s", str, r.String())
+		}
+
+	}
+	return str
 }
 
 func part1(input string) int {
@@ -83,9 +107,25 @@ func part1(input string) int {
 					gm._instr = append(gm._instr, Right)
 				}
 			}
+			continue
 		}
+		if line == "" {
+			continue
+		}
+		arr := strings.Split(line, "=")
+		kk := strings.TrimSpace(arr[0])
+		arg := strings.TrimSpace(arr[1])
+		arg = strings.Replace(arg, "(", "", -1)
+		arg = strings.Replace(arg, ")", "", -1)
+		keysarr := strings.Split(arg, ",")
+		lri := LRItem{
+			_leftKey:  strings.TrimSpace(keysarr[0]),
+			_rightKey: strings.TrimSpace(keysarr[1]),
+		}
+		gm._guideBook[kk] = lri
 	}
-	fmt.Println(gm._instr)
+	fmt.Println(gm._instr.String())
+	fmt.Println(gm._guideBook)
 	return 0
 }
 
