@@ -72,11 +72,23 @@ type LRItem struct {
 	_rightKey string
 }
 
+func (lr *LRItem) GetTurnKey(turn Turn) string {
+	if turn == Left {
+		return lr._leftKey
+	} else if turn == Right {
+		return lr._rightKey
+	}
+	panic("GetTurnKey turn not recognized")
+}
+
 type TurnArr []Turn
 
 type GuideMap struct {
 	_instr     TurnArr
 	_guideBook map[string]LRItem
+	_startKey  string
+	_dstKey    string
+	_path      []string
 }
 
 func (tt *TurnArr) String() string {
@@ -90,6 +102,38 @@ func (tt *TurnArr) String() string {
 
 	}
 	return str
+}
+
+func (gm *GuideMap) CountSteps(start, dst string) int {
+	gm._path = []string{start}
+	gm._dstKey = dst
+	gm._startKey = start
+	kk := gm._startKey
+	count := 0
+	tix := 0
+	turn := gm._instr[tix]
+	count = gm.nextTurn(kk, turn, tix, count)
+	return count
+}
+
+func (gm *GuideMap) nextTurn(kk string, turn Turn, tix, count int) int {
+	if vv, ok := gm._guideBook[kk]; ok {
+		count += 1
+		kt := vv.GetTurnKey(turn)
+		gm._path = append(gm._path, kt)
+		if kt == gm._dstKey {
+			return count
+		}
+		nextTix := tix + 1
+		if nextTix >= len(gm._instr) {
+			nextTix = 0
+		}
+		nextTurn := gm._instr[nextTix]
+		count = gm.nextTurn(kt, nextTurn, nextTix, count)
+	} else {
+		panic("key not found")
+	}
+	return count
 }
 
 func part1(input string) int {
@@ -122,10 +166,20 @@ func part1(input string) int {
 			_leftKey:  strings.TrimSpace(keysarr[0]),
 			_rightKey: strings.TrimSpace(keysarr[1]),
 		}
-		gm._guideBook[kk] = lri
+		if _, ok := gm._guideBook[kk]; !ok {
+			gm._guideBook[kk] = lri
+		} else {
+			panic("double key")
+		}
+
 	}
+	dest_key := "ZZZ"
+	start_key := "AAA"
+	steps := gm.CountSteps(start_key, dest_key)
 	fmt.Println(gm._instr.String())
 	fmt.Println(gm._guideBook)
+	fmt.Println("path", gm._path)
+	fmt.Printf("Steps to %s are %d\n", dest_key, steps)
 	return 0
 }
 
