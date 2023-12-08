@@ -127,47 +127,70 @@ func (gm *GuideMap) CountSimultaneousKeys(start, dst string) int {
 			res_sim_keys = append(res_sim_keys, 0)
 		}
 	}
+	fmt.Println("simultan: ", len(res_sim_keys), res_sim_keys)
 
-	step_chan := make(chan StepEnd)
-	conti_chan := make(chan StepContinue)
-	term_chan := make(chan int)
+	step_chan := make(map[int]chan StepEnd)
+	conti_chan := make(map[int]chan StepContinue)
+	term_chan := make(map[int]chan int)
 
 	for ix, ss := range gm._start_sim_keys {
+		conti_chan[ix] = make(chan StepContinue)
+		term_chan[ix] = make(chan int)
+		step_chan[ix] = make(chan StepEnd)
 		go func(cix int, start_s string) {
-			gm.searchStepToEndSuffix(start_s, step_chan, cix, conti_chan, term_chan)
+			gm.searchStepToEndSuffix(start_s, step_chan[cix], cix, conti_chan[cix], term_chan[cix])
 			fmt.Println("routine terminated ", cix)
 		}(ix, ss)
 	}
+	blocking := []int{}
+	for ixi := range gm._start_sim_keys {
+		blocking = append(blocking, ixi)
+	}
 	for {
-		select {
-		case end_step := <-step_chan:
-			fmt.Println("possible end on ", end_step)
-			res_sim_keys[end_step.chan_ix] = end_step.fin_step
-			vv_max := end_step.fin_step
-			for _, vv := range res_sim_keys {
-				if vv > vv_max {
-					vv_max = vv
-				}
+		for ixi := range blocking {
+			select {
+			case end_step := <-step_chan[ixi]:
+				fmt.Println("possible end on ", end_step, ixi)
+				res_sim_keys[end_step.chan_ix] = end_step.fin_step
+			default:
+				//fmt.Println("no message sent")
 			}
-			fmt.Println("current max step is ", vv_max)
-			equal := true
-			for ix, vv := range res_sim_keys {
-				if vv < vv_max {
-					equal = false
-					if vv != 0 {
-						res_sim_keys[ix] = 0
-						fmt.Println("wake up routine  ", ix)
-						conti_chan <- StepContinue{chan_ix: ix}
-					}
-				}
+		}
+		vv_max := 0
+		for _, vv := range res_sim_keys {
+			if vv > vv_max {
+				vv_max = vv
 			}
-			if equal {
-				fmt.Println("Search converged to ", end_step)
-				for ix := range res_sim_keys {
-					term_chan <- ix
-				}
-				return end_step.fin_step
+		}
+		vv_min := vv_max
+		for _, vv := range res_sim_keys {
+			if vv < vv_min {
+				vv_min = vv
 			}
+		}
+
+		if vv_max == 0 || vv_min == 0 {
+			continue
+		}
+		fmt.Println("current status: ", res_sim_keys)
+		fmt.Println("current max, min step is ", vv_max, vv_min)
+		equal := true
+		//blocking = []int{}
+		for ix, vv := range res_sim_keys {
+			if vv < vv_max {
+				equal = false
+				fmt.Println("wake up min routine  ", ix, res_sim_keys)
+				res_sim_keys[ix] = 0
+				conti_chan[ix] <- StepContinue{chan_ix: ix}
+				//blocking = append(blocking, ix)
+			}
+		}
+		if equal {
+			fmt.Println("Search converged to ", vv_max)
+			for ix := range res_sim_keys {
+				term_chan[ix] <- ix
+			}
+			return vv_max
 		}
 	}
 }
@@ -193,26 +216,28 @@ func (gm *GuideMap) searchStepToEndSuffix(start_s string, step_chan chan StepEnd
 		step = cc
 		tix = tix_next
 		fmt.Printf("[sub routine %d] candidate (step %d, key %s)\n", cix, cc, endk)
-		fmt.Printf("[sub routine %d] path %v\n", cix, gmch._path)
+		//fmt.Printf("[sub routine %d] path %v\n", cix, gmch._path)
+		fmt.Printf("[sub routine %d] sending on channel %v\n", cix, step_chan)
+		step_chan <- StepEnd{fin_step: cc, fin_key: endk, chan_ix: cix}
+		fmt.Printf("[sub routine %d] is sleeping \n", cix)
 	loop_inter:
 		for {
-			step_chan <- StepEnd{fin_step: cc, fin_key: endk, chan_ix: cix}
 			select {
-			case cont := <-conti_chan:
-				if cont.chan_ix == cix {
-					fmt.Printf("[sub routine %d] path %s\n", cix, start_s)
-					break loop_inter
-				}
+			case <-conti_chan:
+				fmt.Printf("[sub routine %d] resume %s-%s\n", cix, start_s, curr_k)
+				break loop_inter
 			case <-term_chan:
 				fmt.Printf("[sub routine %d] terminated signal received\n", cix)
 				return true
+			default:
+				// nothing to do
 			}
 		}
 	}
 }
 
 func (gm *GuideMap) nextTurnSim(kk string, turn Turn, tix, count int) (int, string, int) {
-	if count > 100000 {
+	if count > 100000000 {
 		fmt.Println(gm._path[len(gm._path)-100:])
 		panic("possible inifinite recursion?")
 	}
