@@ -117,6 +117,10 @@ func (gm *GuideMap) CountSteps(start, dst string) int {
 }
 
 func (gm *GuideMap) nextTurn(kk string, turn Turn, tix, count int) int {
+	if count > 100000 {
+		fmt.Println(gm._path[len(gm._path)-100:])
+		panic("possible inifinite recursion?")
+	}
 	if vv, ok := gm._guideBook[kk]; ok {
 		count += 1
 		kt := vv.GetTurnKey(turn)
@@ -173,13 +177,13 @@ func part1(input string) int {
 		}
 
 	}
-	dest_key := "ZZZ"
 	start_key := "AAA"
+	dest_key := "ZZZ"
 	steps := gm.CountSteps(start_key, dest_key)
 	fmt.Println(gm._instr.String())
 	fmt.Println(gm._guideBook)
 	fmt.Println("path", gm._path)
-	fmt.Printf("Steps to %s are %d\n", dest_key, steps)
+	fmt.Printf("Steps from %s to %s are %d\n", start_key, dest_key, steps)
 	return 0
 }
 
