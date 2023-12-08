@@ -179,10 +179,13 @@ func (gm *GuideMap) CountSimultaneousKeys(start, dst string) int {
 		for ix, vv := range res_sim_keys {
 			if vv < vv_max {
 				equal = false
-				fmt.Println("wake up min routine  ", ix, res_sim_keys)
-				res_sim_keys[ix] = 0
-				conti_chan[ix] <- StepContinue{chan_ix: ix}
-				//blocking = append(blocking, ix)
+				if vv_min == vv {
+					fmt.Println("wake up min routine  ", ix, res_sim_keys)
+					res_sim_keys[ix] = 0
+					conti_chan[ix] <- StepContinue{chan_ix: ix}
+					//blocking = append(blocking, ix)
+					break
+				}
 			}
 		}
 		if equal {
