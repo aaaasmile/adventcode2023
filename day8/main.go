@@ -179,13 +179,13 @@ func (gm *GuideMap) CountSimultaneousKeys(start, dst string) int {
 		for ix, vv := range res_sim_keys {
 			if vv < vv_max {
 				equal = false
-				if vv_min == vv {
-					fmt.Println("wake up min routine  ", ix, res_sim_keys)
-					res_sim_keys[ix] = 0
-					conti_chan[ix] <- StepContinue{chan_ix: ix}
-					//blocking = append(blocking, ix)
-					break
-				}
+				//if vv_min == vv {
+				fmt.Println("wake up min routine  ", ix, res_sim_keys)
+				res_sim_keys[ix] = 0
+				conti_chan[ix] <- StepContinue{chan_ix: ix}
+				//blocking = append(blocking, ix)
+				// 	break
+				// }
 			}
 		}
 		if equal {
@@ -240,10 +240,10 @@ func (gm *GuideMap) searchStepToEndSuffix(start_s string, step_chan chan StepEnd
 }
 
 func (gm *GuideMap) nextTurnSim(kk string, turn Turn, tix, count int) (int, string, int) {
-	if count > 100000000 {
-		fmt.Println(gm._path[len(gm._path)-100:])
-		panic("possible inifinite recursion?")
-	}
+	// if count > 100000000 {
+	// 	fmt.Println(gm._path[len(gm._path)-100:])
+	// 	panic("possible inifinite recursion?")
+	// }
 	kt := ""
 	if vv, ok := gm._guideBook[kk]; ok {
 		count += 1
